@@ -7,21 +7,15 @@ nav:
   path: /guide
 ---
 
+[![Build Status](https://img.shields.io/travis/querycap/devkit.svg?style=flat-square)](https://travis-ci.org/querycap/devkit)
+[![codecov](https://codecov.io/gh/querycap/devkit/branch/master/graph/badge.svg)](https://codecov.io/gh/querycap/devkit)
+
 ## 环境准备
 
 - node：15.x （建议安装 nvm）
 - yarn：2.x （升级指南）
 - pnpm: 6 (升级指南)
 - npm 源：https://registry.npmjs.org 或 https://registry.yarnpkg.com, 禁止使用淘宝源
-
-# DevKit
-
-[![Build Status](https://img.shields.io/travis/querycap/devkit.svg?style=flat-square)](https://travis-ci.org/querycap/devkit)
-[![codecov](https://codecov.io/gh/querycap/devkit/branch/master/graph/badge.svg)](https://codecov.io/gh/querycap/devkit)
-
-## Environment
-
-- Node 14+
 - TypeScript Only
 - No IE
 
