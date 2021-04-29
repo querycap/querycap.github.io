@@ -129,6 +129,16 @@ test('generate mapbox-gl css', () => {
 });
 ```
 
+```json
+"scripts": {
+    "test": "pnpm tsc && jest",
+}
+```
+
+运行
+
+执行 pnpm run test 命令后，会执行项目下所有的 test 文件，从而生成需要的组件
+
 ## @querycap-dev/generate-svg2tsx
 
 @querycap-dev/generate-svg2tsx 用于将 svg 文件转换为 React 的 Icon 组件。
@@ -151,6 +161,8 @@ describe('generate', () => {
   });
 });
 ```
+
+使用方法同 generate-css2tsx 一样。
 
 ### webpack 配置
 
