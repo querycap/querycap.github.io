@@ -4,9 +4,54 @@ order: 2
 toc: menu
 ---
 
-## @querycap/bootstrap
+## 配置
 
-创建一个 React 应用入口，内部会初始化 history、store、持久化数据、redux-logger，创建根组件，最终将
+@querycap/config 用于解析项目下 config.ts 文件，并将配置对象传入全局 ConfigProvider，
+使用时可以通过 useConfig 获取。
+
+使用
+
+```ts
+import { NotificationHub, Confirmations } from '@querycap-canary/dashboard';
+import { ThemeProvider } from '@querycap-ui/core/macro';
+import { patchBearerToken } from '@querycap/access';
+import { createBootstrap } from '@querycap/bootstrap';
+import { useConfig } from '@querycap/config';
+import { AxiosProvider, baseURLsFromConfig } from '@querycap/request';
+import { useStore } from '@reactorx/core';
+import { ReactNode } from 'react';
+import { conf } from './config';
+import { CSSPreset } from './CSSPreset';
+import { rootRoutes } from './routes';
+
+const Setup = ({ children }: { children: ReactNode }) => {
+  const store$ = useStore();
+  const c = useConfig();
+
+  return (
+    <ThemeProvider>
+      <CSSPreset>
+        <Confirmations />
+        <NotificationHub />
+        <AxiosProvider
+          baseURLs={baseURLsFromConfig(c)}
+          interceptors={[patchBearerToken(store$)]}
+        >
+          {children}
+        </AxiosProvider>
+      </CSSPreset>
+    </ThemeProvider>
+  );
+};
+
+export const bootstrap = createBootstrap(conf())(() => (
+  <Setup>{rootRoutes}</Setup>
+));
+```
+
+## 启动
+
+@querycap/bootstrap 创建一个 React 应用入口，内部会初始化 history、store、持久化数据、redux-logger，创建根组件，最终将
 根组件以 ReactDOM.render 挂载到根节点。
 
 ```ts
@@ -83,24 +128,58 @@ export const bootstrap = createBootstrap(conf())(() => (
 ### useTempDataOfRequest
 
 ```ts
-const [data, request, requesting$] = useTempDataOfRequest(apiFn, params, watchers, cacheKey)；
+declare const useTempDataOfRequest: <TRequestActor extends RequestActor<
+  any,
+  any
+>>(
+  requestActor: TRequestActor,
+  arg: TRequestActor['arg'],
+  deps?: any[],
+  cacheKey?: string | undefined,
+) => readonly [
+  TRequestActor['done']['arg']['data'] | undefined,
+  (
+    req: TRequestActor['arg'] | undefined,
+    opt?:
+      | (axios.AxiosRequestConfig & {
+          requestOptsFromReq?:
+            | ((
+                arg: TRequestActor['arg'],
+              ) => _reactorx_request.IRequestOpts<any>)
+            | undefined;
+        } & Pick<
+            _reactorx_request.IUseRequestOpts<
+              TRequestActor['arg'],
+              TRequestActor['opts'],
+              IStatusError
+            >,
+            'onSuccess' | 'onFail'
+          >)
+      | undefined,
+  ) => void,
+  rxjs.BehaviorSubject<boolean>,
+];
 ```
 
 用于组件挂载完成时发起请求。
+
 请求发出的时机：
 
-- 组件实例第一次挂载后（componentDidMount）；
-- watchers 数组中任意值变化（浅比较）；
+- 组件实例第一次挂载后；
+- deps 数组中任意值变化（浅比较）；
+
+参数：
+
+- requestActor：必传，src-clients/xxx 下对应自动生成的网关接口函数；
+- arg：必传，请求的参数（token 不用传，拦截器中默认写入 header 中了）；
+- deps：可选，数组(同 useEffect)，当改数组中任何一个值变化(浅比较)，都会重新发起请求；
+- cacheKey：可选，字符串。标定当前请求通道的唯一性。主要用于多个请求(同一接口，不同请求参数)同时发起时, 用于区分。
 
 返回值：
 
 - data: 200 时的响应数据，默认：undefined；
 - request：手动再次发起请求的方法，参数为请求参数 或 undefined(表示使用默认的请求参数)；
 - requesting\$: 表示是否请求中的 observable，通常使用 useObservable 获取该布尔值；
-- apiFn：必传，src-clients/xxx 下对应自动生成的网关接口函数；
-- params：必传，请求的参数（token 不用传，拦截器中默认写入 header 中了）；
-- watchers：可选，数组(同 useEffect)，当改数组中任何一个值变化(浅比较)，都会重新发起请求；
-- cacheKey：可选，字符串。标定当前请求通道的唯一性。主要用于多个请求(同一接口，不同请求参数)同时发起时, 用于区分。
 
 ```ts
 import { useInstance } from '@querycap-canary/oauth/Instance';
@@ -300,7 +379,7 @@ const IssueList = () => {
 
 ## 权限
 
-@querycap/access 下包含用户信息、权限认证相关的模块。
+@querycap/access 下包含 Token 信息、权限认证相关的模块。
 
 ### AccessControlProvider
 
@@ -396,11 +475,11 @@ export const getRouterByStrategy = (strategy: string) => {
 
 ### useAccess
 
-获取用户信息
+获取登陆 Token 信息
 
 ### useAccessMgr
 
-对用户信息进行获取、修改、删除
+对 Token 信息进行获取、修改、删除
 
 ```ts
 const [access$, set, del] = useAccessMgr();
@@ -1349,3 +1428,22 @@ declare function createUseState<T>(
   },
 ): () => readonly [any, (stateOrUpdater: T | TUpdater<T>) => void];
 ```
+
+### useQueryState
+
+```ts
+declare const useQueryState: <T extends string | string[]>(
+  queryKey: string,
+  defaultValue: T,
+) => readonly [T, react.Dispatch<react.SetStateAction<T>>];
+```
+
+用于将数据同步到 url 上的 query 参数上
+
+使用：
+
+```ts
+const [search, setSearch] = useQueryState('key', 'value');
+```
+
+当每次调用 setSearch 的时候，url 上的参数也会同步改变。
