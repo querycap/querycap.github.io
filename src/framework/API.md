@@ -121,9 +121,332 @@ export const bootstrap = createBootstrap(conf())(() => (
 
 @querycap/route-tree 对@reactor/router 进行封装，提供了路由权限以及 index 路由的功能，在实际使用中主要还是使用@querycap-canary/routes。
 
+### 基本使用
+
+```ts
+import {
+  EachRoutes,
+  isVirtualRoute,
+  Route,
+  RouteProvider,
+  SwitchRoutes,
+  useNavigate,
+  useRouteContext,
+  load,
+} from '@querycap-canary/routes';
+import { IconOverview } from 'src-modules/power-plant/common/Icons';
+import { getRouterByStrategy } from 'src-modules/power-plant/common/Access';
+
+export const overviewRoutes = (
+  <Route
+    path="overview"
+    title="总览"
+    icon={<IconOverview />}
+    render={getRouterByStrategy('bff-smart-power-plant.MOD_OVERVIEW')}
+  >
+    <Route index content={load(() => import('./Overview'))} />
+  </Route>
+);
+
+export const rootRoutes = (
+  <Route>
+    {loginRoutes}
+    <Route path={'/'} content={<FocusUserAndProject />}>
+      <Route path={':appName/:projectID'} content={<Main />}>
+        <Route index content={<AutoRedirectAccessibleByStrategy />} />
+        {overviewRoutes}
+        {healthRoutes}
+        {optimizeRoutes}
+        {supportRoutes}
+        {dataRoutes}
+        {platformRoutes}
+      </Route>
+    </Route>
+  </Route>
+);
+
+export const bootstrap = createBootstrap(conf())(() => (
+  <Setup>{rootRoutes}</Setup>
+));
+```
+
+### Route
+
+路由组件，根据 path 匹配对应的路径，渲染 content，render 可实现路由权限，在 render 内部可以决定是否渲染组件。index 标识根路由，title 和 icon 会显示在菜单栏。
+
+### Link
+
+```ts
+import { Link } from '@reactorx/router';
+
+const PlatformManage = () => {
+  return (
+    <div
+      css={{
+        display: 'flex',
+        height: 'calc(100vh - 4em)',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Link to={'/optimize/feedback'}>
+        <div css={select().marginTop('1em')}>意见反馈</div>
+      </Link>
+      <Link to={'/platform/user'}>
+        <div
+          css={select()
+            .marginTop('1em')
+            .color(colors.gray8)}
+        >
+          用户管理
+        </div>
+      </Link>
+    </div>
+  );
+};
+```
+
+### NavLink
+
+```ts
+import { NavLink } from '@reactorx/router';
+
+const Example = () => {
+  return <NavLink to={`groups/${projectID}?name=${name}`}>查看</NavLink>;
+};
+```
+
+### SwitchRoutes
+
+类似 react-router-dom 的 Switch，如上面的 Main 内部就使用了 SwitchRoutes，当 content 内部使用了 SwitchRoutes 时，使用 Route 的 children 来实现多个子路由的渲染。content 结合 load 可以实现动态加载。
+
+```ts
+const Main = () => {
+  return (
+    <ThemeState fontSize={theme.fontSizes.s}>
+      <ProLayout
+        logo={logo}
+        layout={'top'}
+        renderHeader={<CurrentUser />}
+        theme={'light'}
+      >
+        <SwitchRoutes />
+      </ProLayout>
+    </ThemeState>
+  );
+};
+```
+
+### 嵌套路由
+
+```ts
+export const platformRoutes = (
+  <Route path="platform" title="平台管理" icon={<IconPlatform />}>
+    <Route index content={load(() => import('./PlatformManage'))} />
+    <Route path={'user'} content={load(() => import('./UserManage'))}>
+      <Route index content={<AutoRedirectAccessible />} />
+      {profileRoutes}
+      {roleRoutes}
+    </Route>
+  </Route>
+);
+```
+
+### 路径参数
+
+```ts
+<Route path={'history/:modelID'}>
+  <Route index content={load(() => import('./HistoryRecord'))} />
+  <Route
+    path={':resultID'}
+    content={load(() => import('./HistorySuggestDetail'))}
+  />
+</Route>
+```
+
+获取路径参数
+
+```ts
+import { useRouter } from '@reactorx/router';
+
+const HistorySuggestDetail = () => {
+  const { match, history } = useRouter();
+  const { modelID, resultID } = match.params;
+
+  return <>child</>;
+};
+```
+
+query 参数解析
+
+```ts
+import { parseSearchString, toSearchString, useRouter } from '@reactorx/router';
+
+export const UserMenu = ({ children }: { children?: ReactNode }) => {
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const logout = useLogout();
+  const { history } = useRouter();
+
+  const [isOpened, openPopover, closePopover] = useToggle();
+
+  useToggleControlOnClick(triggerRef, () =>
+    isOpened ? closePopover() : openPopover(),
+  );
+
+  const [{ selectValue$ }, Select] = useNewSelect();
+
+  useObservableEffect(() => {
+    if (!triggerRef.current) {
+      return;
+    }
+
+    return selectValue$.pipe(
+      tap(opt => {
+        if (opt === 'to-logout') {
+          history.replace({
+            search: toSearchString({
+              ...parseSearchString(location.search),
+              _from: 'close',
+            }),
+          }); // 兼容OAuth退出
+          logout();
+        }
+        closePopover();
+      }),
+    );
+  }, []);
+
+  const user = useLogonUser();
+
+  return (
+    <ThemeState fontSize={roundedEm(0.9)}>
+      <div
+        css={select()
+          .fontSize(theme.state.fontSize)
+          .paddingTop(roundedEm(1.4))
+          .paddingBottom(roundedEm(1))
+          .paddingX(roundedEm(1.4))
+          .with(
+            select('& > a')
+              .outline('none')
+              .paddingY(roundedEm(0.6))
+              .colorFill(pipe(theme.state.color, tint(0.1))),
+          )}
+      >
+        <span ref={triggerRef} onClick={preventDefault}>
+          <span css={select().display('block')}>
+            <span>
+              {user.identities[AccountIdentityType.NICKNAME] || '用户'}
+            </span>
+            &nbsp;
+            <IconChevronDown />
+          </span>
+          <span
+            css={select()
+              .display('block')
+              .opacity(0.4)}
+          >
+            <small>{user.accountID}</small>
+          </span>
+        </span>
+        {isOpened && (
+          <Select>
+            <SelectMenuPopover
+              triggerRef={triggerRef}
+              onRequestClose={() => closePopover()}
+              fullWidth
+              placement={'bottom-left'}
+            >
+              {children}
+              <MenuOptGroup>
+                <div data-opt={'to-logout'}>退出登录</div>
+              </MenuOptGroup>
+            </SelectMenuPopover>
+          </Select>
+        )}
+      </div>
+    </ThemeState>
+  );
+};
+```
+
+其他
+
+```ts
+import {
+  Navigate,
+  Route,
+  useLocation,
+  useNavigate,
+} from '@querycap-canary/routes';
+
+const { pathname, query, hash, params } = useLocation();
+const navigate = useNavigate();
+```
+
 ## 请求
 
 @querycap/request 提供了请求相关的 react hook、axios 全局 Provider、错误处理等 api。
+
+### useRequest
+
+useRequest 用于手动发起请求的场景，如表单。
+
+```ts
+import { useRequest } from '@reactorx/request';
+
+const AcFormApp = ({
+  action,
+  app,
+  onSuccess,
+}: {
+  action: string;
+  app?: IApp;
+  onSuccess?: () => void;
+}) => {
+  const [formCtx, Form] = useNewForm<typeof putApp.arg.body>('AcFormApp', app);
+  const notify = useNotify();
+
+  const [put] = useRequest(putApp, {
+    onSuccess: () => {
+      onSuccess && onSuccess();
+      notify('success', `${action}成功`);
+    },
+    onFail: actor => {
+      formCtx.setErrors(pickErrors(actor.arg.data.errorFields));
+    },
+  });
+
+  return (
+    <Form
+      css={select().maxWidth(400)}
+      onSubmit={values => {
+        put({
+          body: values,
+        });
+      }}
+    >
+      <FormControlWithField
+        name="name"
+        desc="url safe 字符"
+        label={displayApp('name')}
+        validate={pipe(required(), validateSafeURL())}
+        readOnly={!!app}
+      >
+        {props => <SimpleInputText {...props} />}
+      </FormControlWithField>
+      <FormControlWithField name="fullName" label={displayApp('fullName')}>
+        {props => <SimpleInputText {...props} />}
+      </FormControlWithField>
+      <FormControls>
+        <Button type={'submit'} primary>
+          {app ? '更新' : '创建'}
+        </Button>
+      </FormControls>
+    </Form>
+  );
+};
+```
 
 ### useTempDataOfRequest
 
@@ -161,7 +484,7 @@ declare const useTempDataOfRequest: <TRequestActor extends RequestActor<
 ];
 ```
 
-用于组件挂载完成时发起请求。
+用于组件挂载完成时发起请求，内部是对 useRequest 的封装。
 
 请求发出的时机：
 
