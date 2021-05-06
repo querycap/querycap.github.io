@@ -5,6 +5,7 @@ toc: menu
 nav:
   title: 框架
   path: /framework
+  order: 2
 ---
 
 ### 概览
