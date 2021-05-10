@@ -1737,7 +1737,7 @@ export const MustLogonUser = ({
 
 ### createUseState
 
-useStoreState$的封装，简化了useStoreState$的使用。
+useStoreState 的封装，简化了 useStoreState 的使用。
 
 签名
 
