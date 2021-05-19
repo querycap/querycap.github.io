@@ -36,7 +36,7 @@ rm yarn.lock
 pnpm add @querycap-dev/devkit@0.9.0
 ```
 
-批量替换 `package.json`  中 `yarn`  为 `npm`
+批量替换 `package.json`  中 `yarn`  为 `pnpm`
 
 尝试运行项目 `npx devkit dev xxx`
 

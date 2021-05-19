@@ -133,11 +133,12 @@ if (useObservable(requesting$) || useObservable(requesting$2)) {
 
 ```ts
 const loading1 = useObservable(requesting$);
+
+const loading2 = useObservable(requesting$2);
+
 if (loading1) {
   return <div>Loading</div>;
 }
-
-const loading2 = useObservable(requesting$2);
 if (loading2) {
   return <div>Loading</div>;
 }
